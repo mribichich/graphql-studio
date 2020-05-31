@@ -7,7 +7,7 @@
         {
             "files": ["*.yml"],
             "options": {
-                "tabWidth": 1
+                "tabWidth": 2
             }
         }
     ]
