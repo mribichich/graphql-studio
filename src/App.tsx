@@ -112,28 +112,56 @@ function App() {
         });
     }, [handleInspectOperation]);
 
-    const fetchSchema = (token: string) =>
-        fetcher(token)({ query: getIntrospectionQuery() })
-            .then((result) => {
-                setSchema(buildClientSchema(result.data));
-            })
-            .catch((e) => {
-                setSchema(undefined);
-                enqueueSnackbar(`${e.toString()}. Probabky invalid token`, { variant: 'error' });
-            });
+    const fetchSchema = useCallback(
+        (token: string) =>
+            fetcher(token)({ query: getIntrospectionQuery() })
+                .then((result) => {
+                    setSchema(buildClientSchema(result.data));
+                })
+                .catch((e) => {
+                    setSchema(undefined);
+                    enqueueSnackbar(`${e.toString()}. Probably invalid token`, { variant: 'error' });
+                }),
+        [enqueueSnackbar]
+    );
+
+    useEffect(() => {
+        try {
+            const token = localStorage.getItem('token');
+
+            if (!token) return;
+
+            const jwtData = jwtDecode<{ ['https://automatic.dealerinspire.com/email']: string }>(token);
+
+            setToken(token);
+            setEmail(jwtData['https://automatic.dealerinspire.com/email']);
+
+            fetchSchema(token);
+        } catch (e) {
+            enqueueSnackbar(e.toString(), { variant: 'error' });
+        }
+    }, [enqueueSnackbar, fetchSchema]);
 
     const handleToggleExplorer = () => setExplorerIsOpen((prev) => !prev);
 
     const handleToken = () => {
         try {
-            const token = window?.prompt('Token', '')?.replace('Bearer ', '').trim();
+            const token = prompt('Token', '')?.replace('Bearer ', '').trim();
 
-            const jwtData = jwtDecode<{ ['https://automatic.dealerinspire.com/email']: string }>(token || '');
+            if (!token) {
+                setToken('');
+                setEmail('');
+                localStorage.setItem('token', '');
+                return;
+            }
+
+            const jwtData = jwtDecode<{ ['https://automatic.dealerinspire.com/email']: string }>(token);
 
             setToken(token);
             setEmail(jwtData['https://automatic.dealerinspire.com/email']);
+            localStorage.setItem('token', token);
 
-            token && fetchSchema(token);
+            fetchSchema(token);
         } catch (e) {
             enqueueSnackbar(e.toString(), { variant: 'error' });
         }
@@ -149,8 +177,6 @@ function App() {
                     onRunOperation={(operationName: string) => graphiql.current.handleRunQuery(operationName)}
                     explorerIsOpen={explorerIsOpen}
                     onToggleExplorer={handleToggleExplorer}
-                    // getDefaultScalarArgValue={getDefaultScalarArgValue}
-                    // makeDefaultArg={makeDefaultArg}
                 />
                 <GraphiQL ref={graphiql} fetcher={fetcher(token)} schema={schema} query={query} onEditQuery={setQuery}>
                     <GraphiQL.Toolbar>
@@ -161,8 +187,11 @@ function App() {
                         />
                         <GraphiQL.Button onClick={() => graphiql.current.handleToggleHistory()} label="History" title="Show History" />
                         <GraphiQL.Button onClick={handleToggleExplorer} label="Explorer" title="Toggle Explorer" />
-                        <GraphiQL.Button onClick={handleToken} label="Token" title="Override Token" />
-                        {email}
+                        <GraphiQL.Button
+                            onClick={handleToken}
+                            label={'Token' + (email ? ' (x)' : '')}
+                            title={'Set custom Token' + (email ? ' (' + email + ')' : '')}
+                        ></GraphiQL.Button>
                     </GraphiQL.Toolbar>
                 </GraphiQL>
             </div>
