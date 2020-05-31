@@ -5,6 +5,7 @@ import GraphiQLExplorer from 'graphiql-explorer';
 import 'graphiql/graphiql.css';
 import { buildClientSchema, getIntrospectionQuery, GraphQLSchema, parse } from 'graphql';
 import jwtDecode from 'jwt-decode';
+import { useSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 function fetcher(token: string | undefined) {
@@ -45,10 +46,10 @@ function App() {
     const [schema, setSchema] = useState<GraphQLSchema>();
     const [query, setQuery] = useState<string>();
     const [token, setToken] = useState<string>();
-    const [error, setError] = useState<string>();
     const [email, setEmail] = useState<string>();
     const [explorerIsOpen, setExplorerIsOpen] = useState(true);
     const _graphiql = useRef<any | null>(null);
+    const { enqueueSnackbar } = useSnackbar();
 
     const _handleInspectOperation = useCallback(
         (cm: any, mousePos: { line: Number; ch: Number }) => (cm: any, mousePos: { line: Number; ch: Number }) => {
@@ -119,11 +120,10 @@ function App() {
         fetcher(token)({ query: getIntrospectionQuery() })
             .then((result) => {
                 setSchema(buildClientSchema(result.data));
-                setError(undefined);
             })
             .catch((e) => {
                 setSchema(undefined);
-                setError(e.toString() + '. probabky invalid token');
+                enqueueSnackbar(`${e.toString()}. Probabky invalid token`, { variant: 'error' });
             });
 
     const _handleToggleExplorer = () => setExplorerIsOpen((prev) => !prev);
@@ -136,23 +136,15 @@ function App() {
 
             setToken(token);
             setEmail(jwtData['https://automatic.dealerinspire.com/email']);
-            setError(undefined);
 
             token && fetchSchema(token);
         } catch (e) {
-            setError(e.toString());
+            enqueueSnackbar(e.toString(), { variant: 'error' });
         }
     };
 
     return (
         <div className={classes.root}>
-            {error && (
-                <div>
-                    error: {error}
-                    <br></br>
-                </div>
-            )}
-
             <div className={clsx('graphiql-container', classes.main)}>
                 <GraphiQLExplorer
                     schema={schema}
