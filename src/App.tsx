@@ -48,10 +48,10 @@ function App() {
     const [token, setToken] = useState<string>();
     const [email, setEmail] = useState<string>();
     const [explorerIsOpen, setExplorerIsOpen] = useState(true);
-    const _graphiql = useRef<any | null>(null);
+    const graphiql = useRef<any | null>(null);
     const { enqueueSnackbar } = useSnackbar();
 
-    const _handleInspectOperation = useCallback(
+    const handleInspectOperation = useCallback(
         (cm: any, mousePos: { line: Number; ch: Number }) => (cm: any, mousePos: { line: Number; ch: Number }) => {
             const parsedQuery = parse(query || '');
 
@@ -103,18 +103,14 @@ function App() {
     );
 
     useEffect(() => {
-        console.log('inside use effect before _graphiql');
+        if (!graphiql.current) return;
 
-        if (!_graphiql.current) return;
-
-        console.log('inside use effect after _graphiql');
-
-        const editor = _graphiql.current.getQueryEditor();
+        const editor = graphiql.current.getQueryEditor();
         editor.setOption('extraKeys', {
             ...(editor.options.extraKeys || {}),
-            'Shift-Alt-LeftClick': _handleInspectOperation,
+            'Shift-Alt-LeftClick': handleInspectOperation,
         });
-    }, [_handleInspectOperation]);
+    }, [handleInspectOperation]);
 
     const fetchSchema = (token: string) =>
         fetcher(token)({ query: getIntrospectionQuery() })
@@ -126,9 +122,9 @@ function App() {
                 enqueueSnackbar(`${e.toString()}. Probabky invalid token`, { variant: 'error' });
             });
 
-    const _handleToggleExplorer = () => setExplorerIsOpen((prev) => !prev);
+    const handleToggleExplorer = () => setExplorerIsOpen((prev) => !prev);
 
-    const _handleToken = () => {
+    const handleToken = () => {
         try {
             const token = window?.prompt('Token', '')?.replace('Bearer ', '').trim();
 
@@ -150,22 +146,22 @@ function App() {
                     schema={schema}
                     query={query}
                     onEdit={setQuery}
-                    onRunOperation={(operationName: string) => _graphiql.current.handleRunQuery(operationName)}
+                    onRunOperation={(operationName: string) => graphiql.current.handleRunQuery(operationName)}
                     explorerIsOpen={explorerIsOpen}
-                    onToggleExplorer={_handleToggleExplorer}
+                    onToggleExplorer={handleToggleExplorer}
                     // getDefaultScalarArgValue={getDefaultScalarArgValue}
                     // makeDefaultArg={makeDefaultArg}
                 />
-                <GraphiQL ref={_graphiql} fetcher={fetcher(token)} schema={schema} query={query} onEditQuery={setQuery}>
+                <GraphiQL ref={graphiql} fetcher={fetcher(token)} schema={schema} query={query} onEditQuery={setQuery}>
                     <GraphiQL.Toolbar>
                         <GraphiQL.Button
-                            onClick={() => _graphiql.current.handlePrettifyQuery()}
+                            onClick={() => graphiql.current.handlePrettifyQuery()}
                             label="Prettify"
                             title="Prettify Query (Shift-Ctrl-P)"
                         />
-                        <GraphiQL.Button onClick={() => _graphiql.current.handleToggleHistory()} label="History" title="Show History" />
-                        <GraphiQL.Button onClick={_handleToggleExplorer} label="Explorer" title="Toggle Explorer" />
-                        <GraphiQL.Button onClick={_handleToken} label="Token" title="Override Token" />
+                        <GraphiQL.Button onClick={() => graphiql.current.handleToggleHistory()} label="History" title="Show History" />
+                        <GraphiQL.Button onClick={handleToggleExplorer} label="Explorer" title="Toggle Explorer" />
+                        <GraphiQL.Button onClick={handleToken} label="Token" title="Override Token" />
                         {email}
                     </GraphiQL.Toolbar>
                 </GraphiQL>
