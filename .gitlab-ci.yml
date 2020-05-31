@@ -10,7 +10,7 @@ before_script:
 pages:
   script:
     - yarn build
-    - cp build public
+    - cp -r build/ public
   artifacts:
     paths:
       - public
