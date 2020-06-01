@@ -1,0 +1,12 @@
+{
+  "extends": "react-app",
+  "globals": {
+    "cy": true,
+    "Cypress": true
+  },
+  "rules": {
+    "no-console": "warn",
+    "react/self-closing-comp": "warn",
+    "@typescript-eslint/no-dynamic-delete": "warn"
+  }
+}

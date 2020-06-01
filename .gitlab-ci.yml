@@ -9,7 +9,7 @@ before_script:
 
 pages:
   script:
-    - yarn build
+    - PUBLIC_URL=$CI_PAGES_URL yarn build
     - cp -a build/. public
   artifacts:
     paths:
