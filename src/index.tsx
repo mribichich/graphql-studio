@@ -2,14 +2,17 @@ import { SnackbarProvider } from 'notistack';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import App from './App';
+import { Auth0Provider } from './Auth0Provider';
 import './index.css';
 import * as serviceWorker from './serviceWorker';
 
 ReactDOM.render(
     <React.StrictMode>
-        <SnackbarProvider maxSnack={3}>
-            <App />
-        </SnackbarProvider>
+        <Auth0Provider>
+            <SnackbarProvider maxSnack={3}>
+                <App />
+            </SnackbarProvider>
+        </Auth0Provider>
     </React.StrictMode>,
     document.getElementById('root')
 );

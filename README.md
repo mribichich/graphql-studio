@@ -1,4 +1,6 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Graphql Studio
+
+This is base on graphiql and graphiql-explorer. To explore the Graphql API from Automatic
 
 ## Available Scripts
 
