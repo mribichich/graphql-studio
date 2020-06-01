@@ -8,6 +8,7 @@ before_script:
   - yarn
 
 pages:
+  stage: deploy
   script:
     - PUBLIC_URL=$CI_PAGES_URL yarn build
     - cp -a build/. public
