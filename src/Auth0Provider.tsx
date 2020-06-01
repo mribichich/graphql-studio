@@ -47,10 +47,10 @@ export const Auth0Provider: FC = ({ children }) => {
             const auth0FromHook = await createAuth0Client(auth0Options);
             setAuth0(auth0FromHook);
 
-            if (window.location.search.includes('code=') && window.location.search.includes('state=')) {
-                const { appState } = await auth0FromHook.handleRedirectCallback();
-                // onRedirectCallback && onRedirectCallback(appState);
-            }
+            // if (window.location.search.includes('code=') && window.location.search.includes('state=')) {
+            //     const { appState } = await auth0FromHook.handleRedirectCallback();
+            //     onRedirectCallback && onRedirectCallback(appState);
+            // }
 
             const isAuthenticated = await auth0FromHook.isAuthenticated();
 
