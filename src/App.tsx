@@ -9,6 +9,7 @@ import { useSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from './Auth0Provider';
 import AuthConfigDialog, { Form } from './AuthConfigDialog';
+import { EMAIL_CLAIM, LOCAL_STORAGE_PREFIX } from './constants';
 
 const LOCAL_STORAGE_PREFIX = 'graphgl-studio:';
 const EMAIL_CLAIM = 'https://automatic.dealerinspire.com/email';
