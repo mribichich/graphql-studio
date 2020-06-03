@@ -5,7 +5,8 @@ import DialogContent from '@material-ui/core/DialogContent';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import TextField from '@material-ui/core/TextField';
 import { any, not } from 'ramda';
-import React, { ChangeEvent, FC, useState } from 'react';
+import React, { ChangeEvent, FC, useEffect, useState } from 'react';
+import { LOCAL_STORAGE_PREFIX } from './constants';
 
 export type Form = { domain: string; client_id: string; audience: string };
 
@@ -20,6 +21,16 @@ type Props = {
 const AuthConfigDialog: FC<Props> = ({ open = false, onClose, onCancel, onOk }) => {
     const [data, setData] = useState<Form>({ domain: '', client_id: '', audience: '' });
 
+    useEffect(() => {
+        if (!open) return;
+
+        const data = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
+
+        if (!data) return;
+
+        setData(JSON.parse(data)['dev']);
+    }, [open]);
+
     const handleDomainChange = (e: ChangeEvent<HTMLInputElement>) => {
         setData({ ...data, domain: e.target.value });
     };
@@ -32,7 +43,11 @@ const AuthConfigDialog: FC<Props> = ({ open = false, onClose, onCancel, onOk }) 
         setData({ ...data, audience: e.target.value });
     };
 
-    const handleOk = () => onOk && onOk(data);
+    const handleOk = () => {
+        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}authConfig`, JSON.stringify({ dev: data }));
+
+        onOk && onOk(data);
+    };
 
     const invalid = any((a) => not(a), Object.values(data));
 
@@ -52,7 +67,6 @@ const AuthConfigDialog: FC<Props> = ({ open = false, onClose, onCancel, onOk }) 
                         error={!data.domain}
                     />
                     <TextField
-                        autoFocus
                         margin="dense"
                         id="client_id"
                         label="Client Id"
@@ -62,7 +76,6 @@ const AuthConfigDialog: FC<Props> = ({ open = false, onClose, onCancel, onOk }) 
                         error={!data.client_id}
                     />
                     <TextField
-                        autoFocus
                         margin="dense"
                         id="audience"
                         label="Audience"
