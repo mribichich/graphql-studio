@@ -6,17 +6,16 @@ import 'graphiql/graphiql.css';
 import { buildClientSchema, getIntrospectionQuery, GraphQLSchema, parse } from 'graphql';
 import jwtDecode from 'jwt-decode';
 import { useSnackbar } from 'notistack';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from './Auth0Provider';
 import AuthConfigDialog, { Form } from './AuthConfigDialog';
+import Toolbar from './components/Toolbar';
 import { EMAIL_CLAIM, LOCAL_STORAGE_PREFIX } from './constants';
+import useDebounce from './hooks/useDebounce';
 
-const LOCAL_STORAGE_PREFIX = 'graphgl-studio:';
-const EMAIL_CLAIM = 'https://automatic.dealerinspire.com/email';
-
-function fetcher(token: string | undefined) {
+function fetcher(url: string, token: string | undefined) {
     return (params: Object) =>
-        fetch('https://dev.api.di-automatic.net/graphql', {
+        fetch(url, {
             method: 'POST',
             headers: {
                 Accept: 'application/json',
@@ -39,11 +38,15 @@ function fetcher(token: string | undefined) {
 
 const useStyles = makeStyles(() =>
     createStyles({
-        root: {},
-        main: {
+        root: {
+            display: 'flex',
+            flexDirection: 'column',
             height: '100vh',
-            width: '100vw',
         },
+        toolbar: {
+            margin: 8,
+        },
+        main: {},
     })
 );
 
@@ -58,6 +61,16 @@ function App() {
     const { enqueueSnackbar } = useSnackbar();
     const { isAuthenticated, loginWithPopup, user, getTokenSilently, logout, setAuth0Options } = useAuth0();
     const [authConfigDialogOpen, setAuthConfigDialogOpen] = useState(false);
+    const [url, setUrl] = useState<string>('https://dev.api.di-automatic.net/graphql');
+    const debouncedUrl = useDebounce(url, 1000);
+
+    useEffect(() => {
+        const url = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}url`);
+        const token = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}token`);
+
+        url && setUrl(url);
+        token && setToken(token);
+    }, []);
 
     useEffect(() => {
         const authConfig = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
@@ -70,15 +83,16 @@ function App() {
     }, [setAuth0Options]);
 
     const fetchSchema = useCallback(
-        (token: string) =>
-            fetcher(token)({ query: getIntrospectionQuery() })
-                .then((result) => {
-                    setSchema(buildClientSchema(result.data));
-                })
-                .catch((e) => {
-                    setSchema(undefined);
-                    enqueueSnackbar(`${e.toString()}. Probably invalid token`, { variant: 'error' });
-                }),
+        async (url: string, token: string | undefined) => {
+            try {
+                const result = await fetcher(url, token)({ query: getIntrospectionQuery() });
+
+                setSchema(buildClientSchema(result.data));
+            } catch (e) {
+                setSchema(undefined);
+                enqueueSnackbar(e.toString(), { variant: 'error', preventDuplicate: true });
+            }
+        },
         [enqueueSnackbar]
     );
 
@@ -88,14 +102,10 @@ function App() {
 
             const token = await getTokenSilently();
 
-            const jwtData = jwtDecode<{ [EMAIL_CLAIM]: string }>(token);
-
             // TODO: recheck, maybe separate from the other token
             setToken(token);
-            setEmail(jwtData[EMAIL_CLAIM]);
-            fetchSchema(token);
         })();
-    }, [fetchSchema, getTokenSilently, user]);
+    }, [getTokenSilently, user]);
 
     const handleInspectOperation = useCallback(
         (cm: any, mousePos: { line: Number; ch: Number }) => (cm: any, mousePos: { line: Number; ch: Number }) => {
@@ -159,44 +169,28 @@ function App() {
     }, [handleInspectOperation]);
 
     useEffect(() => {
-        try {
-            const token = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}token`);
+        fetchSchema(debouncedUrl, token);
+    }, [fetchSchema, debouncedUrl, token]);
 
-            if (!token) return;
+    useEffect(() => {
+        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}token`, token || '');
 
-            const jwtData = jwtDecode<{ ['https://automatic.dealerinspire.com/email']: string }>(token);
-
-            setToken(token);
-            setEmail(jwtData['https://automatic.dealerinspire.com/email']);
-            fetchSchema(token);
-        } catch (e) {
-            enqueueSnackbar(e.toString(), { variant: 'error' });
+        if (!token) {
+            setEmail('');
+            return;
         }
-    }, [enqueueSnackbar, fetchSchema]);
+
+        const jwtData = jwtDecode<{ [EMAIL_CLAIM]: string }>(token);
+
+        setEmail(jwtData[EMAIL_CLAIM]);
+    }, [token]);
 
     const handleToggleExplorer = () => setExplorerIsOpen((prev) => !prev);
 
     const handleToken = () => {
-        try {
-            const token = prompt('Token', '')?.replace('Bearer ', '').trim();
+        const token = prompt('Token', '')?.replace('Bearer ', '').trim() ?? '';
 
-            if (!token) {
-                setToken('');
-                setEmail('');
-                localStorage.setItem(`${LOCAL_STORAGE_PREFIX}token`, '');
-                return;
-            }
-
-            const jwtData = jwtDecode<{ ['https://automatic.dealerinspire.com/email']: string }>(token);
-
-            setToken(token);
-            setEmail(jwtData['https://automatic.dealerinspire.com/email']);
-            localStorage.setItem(`${LOCAL_STORAGE_PREFIX}token`, token);
-
-            fetchSchema(token);
-        } catch (e) {
-            enqueueSnackbar(e.toString(), { variant: 'error' });
-        }
+        setToken(token);
     };
 
     const handleAuthConfigClick = () => {
@@ -222,11 +216,19 @@ function App() {
     const handleAuthDialogOk = (data: Form) => {
         setAuthConfigDialogOpen(false);
         setAuth0Options(data);
-        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}authConfig`, JSON.stringify({ dev: data }));
     };
+
+    const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setUrl(e.target.value);
+        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}url`, url);
+    };
+
+    const onRefreshClick = () => fetchSchema(debouncedUrl, token);
 
     return (
         <div className={classes.root}>
+            <Toolbar className={classes.toolbar} url={url} onRefreshClick={onRefreshClick} onUrlChange={handleUrlChange} />
+
             <div className={clsx('graphiql-container', classes.main)}>
                 <GraphiQLExplorer
                     schema={schema}
@@ -236,7 +238,7 @@ function App() {
                     explorerIsOpen={explorerIsOpen}
                     onToggleExplorer={handleToggleExplorer}
                 />
-                <GraphiQL ref={graphiql} fetcher={fetcher(token)} schema={schema} query={query} onEditQuery={setQuery}>
+                <GraphiQL ref={graphiql} fetcher={fetcher(debouncedUrl, token)} schema={schema} query={query} onEditQuery={setQuery}>
                     <GraphiQL.Toolbar>
                         <GraphiQL.Button
                             onClick={() => graphiql.current.handlePrettifyQuery()}
@@ -245,17 +247,16 @@ function App() {
                         />
                         <GraphiQL.Button onClick={() => graphiql.current.handleToggleHistory()} label="History" title="Show History" />
                         <GraphiQL.Button onClick={handleToggleExplorer} label="Explorer" title="Toggle Explorer" />
-                        {/* <GraphiQL.Button onClick={handleAuthClick} label="Auth" title="Auth" /> */}
                         <GraphiQL.Menu label="Auth" title="Auth">
                             <GraphiQL.MenuItem label="config" value="config" onSelect={handleAuthConfigClick} />
                             <GraphiQL.MenuItem label="dev" value="dev" onSelect={handleAuthSelect('dev')} />
                         </GraphiQL.Menu>
+                        {isAuthenticated && <GraphiQL.Button label="Logout" title="Logout" onClick={handleLogoutClick} />}
                         <GraphiQL.Button
                             onClick={handleToken}
                             label={'Token' + (email ? ' (x)' : '')}
                             title={'Set custom Token' + (email ? ' (' + email + ')' : '')}
                         />
-                        {isAuthenticated && <GraphiQL.Button label="Logout" title="Logout" onClick={handleLogoutClick} />}
                     </GraphiQL.Toolbar>
                 </GraphiQL>
             </div>
