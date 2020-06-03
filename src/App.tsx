@@ -1,4 +1,5 @@
 import { createStyles, makeStyles } from '@material-ui/core/styles';
+import AccountCircleIcon from '@material-ui/icons/AccountCircle';
 import clsx from 'clsx';
 import GraphiQL from 'graphiql';
 import GraphiQLExplorer from 'graphiql-explorer';
@@ -6,6 +7,7 @@ import 'graphiql/graphiql.css';
 import { buildClientSchema, getIntrospectionQuery, GraphQLSchema } from 'graphql';
 import jwtDecode from 'jwt-decode';
 import { useSnackbar } from 'notistack';
+import { isNil } from 'ramda';
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from './Auth0Provider';
 import AuthConfigDialog, { Form } from './AuthConfigDialog';
@@ -43,6 +45,17 @@ const useStyles = makeStyles(() =>
             display: 'flex',
             flexDirection: 'column',
             height: '100vh',
+        },
+        header: {
+            alignItems: 'center',
+            display: 'flex',
+            fontSize: 14,
+            justifyContent: 'flex-end',
+            margin: '8px 8px 0px 8px',
+
+            '& > *:not(last_child)': {
+                marginRight: 8,
+            },
         },
         toolbar: {
             margin: 8,
@@ -130,17 +143,23 @@ function App() {
             return;
         }
 
-        const jwtData = jwtDecode<{ [EMAIL_CLAIM]: string }>(token);
+        try {
+            const jwtData = jwtDecode<{ [EMAIL_CLAIM]: string }>(token);
 
-        setEmail(jwtData[EMAIL_CLAIM]);
-    }, [token]);
+            setEmail(jwtData[EMAIL_CLAIM]);
+        } catch (e) {
+            enqueueSnackbar(e.toString(), { variant: 'error', preventDuplicate: true });
+        }
+    }, [enqueueSnackbar, token]);
 
     const handleToggleExplorer = () => setExplorerIsOpen((prev) => !prev);
 
     const handleToken = () => {
-        const token = prompt('Token', '')?.replace('Bearer ', '').trim() ?? '';
+        const token = prompt('Token', '');
 
-        setToken(token);
+        if (isNil(token)) return;
+
+        setToken(token.replace('Bearer ', '').trim());
     };
 
     const handleAuthConfigClick = () => {
@@ -153,6 +172,7 @@ function App() {
 
     const handleLogoutClick = () => {
         logout({ returnTo: process.env.PUBLIC_URL });
+        setToken('');
     };
 
     const handleAuthDialogClose = () => {
@@ -177,6 +197,13 @@ function App() {
 
     return (
         <div className={classes.root}>
+            {email && (
+                <div className={classes.header}>
+                    <div>{email}</div>
+                    <AccountCircleIcon color="action" />
+                </div>
+            )}
+
             <Toolbar className={classes.toolbar} url={url} onRefreshClick={onRefreshClick} onUrlChange={handleUrlChange} />
 
             <div className={clsx('graphiql-container', classes.main)}>
@@ -202,11 +229,7 @@ function App() {
                             <GraphiQL.MenuItem label="dev" value="dev" onSelect={handleAuthSelect('dev')} />
                         </GraphiQL.Menu>
                         {isAuthenticated && <GraphiQL.Button label="Logout" title="Logout" onClick={handleLogoutClick} />}
-                        <GraphiQL.Button
-                            onClick={handleToken}
-                            label={'Token' + (email ? ' (x)' : '')}
-                            title={'Set custom Token' + (email ? ' (' + email + ')' : '')}
-                        />
+                        <GraphiQL.Button onClick={handleToken} label={'Token'} title={'Set custom Token'} />
                     </GraphiQL.Toolbar>
                 </GraphiQL>
             </div>

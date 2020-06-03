@@ -1,3 +1,8 @@
+body {
+    font-family: Roboto;
+    font-weight: normal;
+}
+
 .doc-explorer-title-bar {
     border-right: 1px solid #d6d6d6;
 }
