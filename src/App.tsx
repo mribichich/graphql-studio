@@ -75,7 +75,7 @@ function App() {
     const { enqueueSnackbar } = useSnackbar();
     const { isAuthenticated, loginWithPopup, user, getTokenSilently, logout, setAuth0Options } = useAuth0();
     const [authConfigDialogOpen, setAuthConfigDialogOpen] = useState(false);
-    const [url, setUrl] = useState<string>('https://dev.api.di-automatic.net/graphql');
+    const [url, setUrl] = useState<string>('');
     const debouncedUrl = useDebounce(url, 1000);
 
     useEffect(() => {
@@ -132,6 +132,8 @@ function App() {
     }, [query]);
 
     useEffect(() => {
+        if (!debouncedUrl) return;
+
         fetchSchema(debouncedUrl, token);
     }, [fetchSchema, debouncedUrl, token]);
 
@@ -193,7 +195,7 @@ function App() {
         localStorage.setItem(`${LOCAL_STORAGE_PREFIX}url`, url);
     };
 
-    const onRefreshClick = () => fetchSchema(debouncedUrl, token);
+    const onRefreshClick = () => debouncedUrl && fetchSchema(debouncedUrl, token);
 
     return (
         <div className={classes.root}>

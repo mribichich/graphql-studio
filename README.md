@@ -1,6 +1,10 @@
 # Graphql Studio
 
-This is base on graphiql and graphiql-explorer. To explore the Graphql API from Automatic
+Graphql Studio is just a gql explorer/playground with Auth0 integration.
+
+Is base on graphiql and graphiql-explorer.
+
+It was created using Create React App and Materil-UI.
 
 ## Available Scripts
 
