@@ -1,96 +1,72 @@
-import Button from '@material-ui/core/Button';
 import Dialog from '@material-ui/core/Dialog';
-import DialogActions from '@material-ui/core/DialogActions';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import TextField from '@material-ui/core/TextField';
-import { any, not } from 'ramda';
-import React, { ChangeEvent, FC, useEffect, useState } from 'react';
+import { reduce, without } from 'ramda';
+import React, { FC, useState } from 'react';
+import AuthConfigForm from './components/AuthConfigForm';
+import { Form } from './components/AuthConfigForm/AuthConfigForm';
+import AuthConfigList from './components/AuthConfigList';
 import { LOCAL_STORAGE_PREFIX } from './constants';
-
-export type Form = { domain: string; client_id: string; audience: string };
+import { AuthConfigDb } from './types';
 
 type Props = {
     open?: boolean;
+    data?: AuthConfigDb;
 
+    onChange?: (data: AuthConfigDb) => void;
     onClose?: () => void;
-    onCancel?: () => void;
-    onOk?: (data: Form) => void;
+    onOk?: () => void;
 };
 
-const AuthConfigDialog: FC<Props> = ({ open = false, onClose, onCancel, onOk }) => {
-    const [data, setData] = useState<Form>({ domain: '', client_id: '', audience: '' });
+const AuthConfigDialog: FC<Props> = ({ data = {}, open = false, onChange, onClose, onOk }) => {
+    // const [data, setData] = useState<AuthConfigDb>({});
+    const [formVisible, setFormVisible] = useState(false);
 
-    useEffect(() => {
-        if (!open) return;
+    // useEffect(() => {
+    //     if (!open) return;
 
-        const data = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
+    //     const data = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
 
-        if (!data) return;
+    //     if (!data) return;
 
-        setData(JSON.parse(data)['dev']);
-    }, [open]);
+    //     setData(JSON.parse(data));
+    // }, [open]);
 
-    const handleDomainChange = (e: ChangeEvent<HTMLInputElement>) => {
-        setData({ ...data, domain: e.target.value });
+    const handleAdd = () => {
+        setFormVisible(true);
     };
 
-    const handleClientIdChange = (e: ChangeEvent<HTMLInputElement>) => {
-        setData({ ...data, client_id: e.target.value });
+    const handleCancel = () => {
+        setFormVisible(false);
     };
 
-    const handleAudienceChange = (e: ChangeEvent<HTMLInputElement>) => {
-        setData({ ...data, audience: e.target.value });
+    const handleSaved = (newConfig: Form) => {
+        const newData = { ...data, [newConfig.name]: newConfig };
+
+        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}authConfig`, JSON.stringify(newData));
+
+        onChange && onChange(newData);
+        setFormVisible(false);
     };
 
     const handleOk = () => {
-        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}authConfig`, JSON.stringify({ dev: data }));
-
-        onOk && onOk(data);
+        onOk && onOk();
     };
 
-    const invalid = any((a) => not(a), Object.values(data));
+    const handleDelete = (name: string) => {
+        const newData = reduce<string, AuthConfigDb>((acc, cur) => ({ ...acc, [cur]: data[cur] }), {}, without([name], Object.keys(data)));
+
+        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}authConfig`, JSON.stringify(newData));
+
+        onChange && onChange(newData);
+    };
 
     return (
         <div>
-            <Dialog open={open} onClose={onClose} aria-labelledby="form-dialog-title">
-                <DialogTitle id="form-dialog-title">Subscribe</DialogTitle>
-                <DialogContent>
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        id="domain"
-                        label="Domain"
-                        fullWidth
-                        value={data.domain}
-                        onChange={handleDomainChange}
-                        error={!data.domain}
-                    />
-                    <TextField
-                        margin="dense"
-                        id="client_id"
-                        label="Client Id"
-                        fullWidth
-                        value={data.client_id}
-                        onChange={handleClientIdChange}
-                        error={!data.client_id}
-                    />
-                    <TextField
-                        margin="dense"
-                        id="audience"
-                        label="Audience"
-                        fullWidth
-                        value={data.audience}
-                        onChange={handleAudienceChange}
-                        error={!data.audience}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={onCancel}>Cancel</Button>
-                    <Button onClick={handleOk} color="primary" disabled={invalid}>
-                        Save
-                    </Button>
-                </DialogActions>
+            <Dialog open={open} fullWidth maxWidth="sm" onClose={onClose} aria-labelledby="form-dialog-title">
+                {formVisible ? (
+                    <AuthConfigForm onCancel={handleCancel} onSaved={handleSaved} />
+                ) : (
+                    <AuthConfigList data={data} onAdd={handleAdd} onOk={handleOk} onDelete={handleDelete} />
+                )}
             </Dialog>
         </div>
     );
