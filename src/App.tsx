@@ -53,7 +53,7 @@ const useStyles = makeStyles(() =>
             justifyContent: 'flex-end',
             margin: '8px 8px 0px 8px',
 
-            '& > *:not(last_child)': {
+            '& > *:not(:last-child)': {
                 marginRight: 8,
             },
         },
