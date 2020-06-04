@@ -1,11 +1,11 @@
 import Dialog from '@material-ui/core/Dialog';
 import { reduce, without } from 'ramda';
 import React, { FC, useState } from 'react';
-import AuthConfigForm from './components/AuthConfigForm';
-import { Form } from './components/AuthConfigForm/AuthConfigForm';
-import AuthConfigList from './components/AuthConfigList';
-import { LOCAL_STORAGE_PREFIX } from './constants';
-import { AuthConfigDb } from './types';
+import { LOCAL_STORAGE_PREFIX } from '../../constants';
+import { AuthConfigDb } from '../../types';
+import AuthConfigForm from '../AuthConfigForm';
+import { Form } from '../AuthConfigForm/AuthConfigForm';
+import AuthConfigList from '../AuthConfigList';
 
 type Props = {
     open?: boolean;

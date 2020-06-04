@@ -10,7 +10,7 @@ import { useSnackbar } from 'notistack';
 import { isNil } from 'ramda';
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from './Auth0Provider';
-import AuthConfigDialog from './AuthConfigDialog';
+import AuthConfigDialog from './components/AuthConfigDialog';
 import Toolbar from './components/Toolbar';
 import { EMAIL_CLAIM, LOCAL_STORAGE_PREFIX } from './constants';
 import useDebounce from './hooks/useDebounce';
