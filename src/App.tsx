@@ -10,10 +10,11 @@ import { useSnackbar } from 'notistack';
 import { isNil } from 'ramda';
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from './Auth0Provider';
-import AuthConfigDialog, { Form } from './AuthConfigDialog';
+import AuthConfigDialog from './AuthConfigDialog';
 import Toolbar from './components/Toolbar';
 import { EMAIL_CLAIM, LOCAL_STORAGE_PREFIX } from './constants';
 import useDebounce from './hooks/useDebounce';
+import { AuthConfigDb } from './types';
 import showQueryInExplorer from './utils/showQueryInExplorer';
 
 function fetcher(url: string, token: string | undefined) {
@@ -77,13 +78,16 @@ function App() {
     const [authConfigDialogOpen, setAuthConfigDialogOpen] = useState(false);
     const [url, setUrl] = useState<string>('');
     const debouncedUrl = useDebounce(url, 1000);
+    const [authConfigDb, setAuthConfigDb] = useState<AuthConfigDb>({});
 
     useEffect(() => {
         const url = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}url`);
         const token = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}token`);
+        const authConfig = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
 
         url && setUrl(url);
         token && setToken(token);
+        authConfig && setAuthConfigDb(JSON.parse(authConfig));
     }, []);
 
     useEffect(() => {
@@ -181,13 +185,12 @@ function App() {
         setAuthConfigDialogOpen(false);
     };
 
-    const handleAuthDialogCancel = () => {
-        setAuthConfigDialogOpen(false);
+    const handleAuthDialogChange = (data: AuthConfigDb) => {
+        setAuthConfigDb(data);
     };
 
-    const handleAuthDialogOk = (data: Form) => {
+    const handleAuthDialogOk = () => {
         setAuthConfigDialogOpen(false);
-        setAuth0Options(data);
     };
 
     const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -228,7 +231,9 @@ function App() {
                         <GraphiQL.Button onClick={handleToggleExplorer} label="Explorer" title="Toggle Explorer" />
                         <GraphiQL.Menu label="Auth" title="Auth">
                             <GraphiQL.MenuItem label="config" value="config" onSelect={handleAuthConfigClick} />
-                            <GraphiQL.MenuItem label="dev" value="dev" onSelect={handleAuthSelect('dev')} />
+                            {Object.keys(authConfigDb).map((name) => (
+                                <GraphiQL.MenuItem label={name} value={name} onSelect={handleAuthSelect(name)} />
+                            ))}
                         </GraphiQL.Menu>
                         {isAuthenticated && <GraphiQL.Button label="Logout" title="Logout" onClick={handleLogoutClick} />}
                         <GraphiQL.Button onClick={handleToken} label={'Token'} title={'Set custom Token'} />
@@ -238,8 +243,9 @@ function App() {
 
             <AuthConfigDialog
                 open={authConfigDialogOpen}
+                data={authConfigDb}
+                onChange={handleAuthDialogChange}
                 onClose={handleAuthDialogClose}
-                onCancel={handleAuthDialogCancel}
                 onOk={handleAuthDialogOk}
             />
         </div>
