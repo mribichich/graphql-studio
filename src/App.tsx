@@ -7,249 +7,270 @@ import 'graphiql/graphiql.css';
 import { buildClientSchema, getIntrospectionQuery, GraphQLSchema } from 'graphql';
 import jwtDecode from 'jwt-decode';
 import { useSnackbar } from 'notistack';
-import { isNil } from 'ramda';
+import { filter, isEmpty, isNil, length, not, reduce } from 'ramda';
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from './Auth0Provider';
 import AuthConfigDialog from './components/AuthConfigDialog';
+import HeadersDialog from './components/HeadersDialog';
 import Toolbar from './components/Toolbar';
 import { EMAIL_CLAIM, LOCAL_STORAGE_PREFIX } from './constants';
 import useDebounce from './hooks/useDebounce';
-import { AuthConfigDb } from './types';
+import { AuthConfigDb, HeadersConfigDb } from './types';
 import showQueryInExplorer from './utils/showQueryInExplorer';
 
-function fetcher(url: string, token: string | undefined) {
-    return (params: Object) =>
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                authorization: token ? 'Bearer ' + token : '',
-            },
-            body: JSON.stringify(params),
-        })
-            .then(function (response) {
-                return response.text();
-            })
-            .then(function (responseBody) {
-                try {
-                    return JSON.parse(responseBody);
-                } catch (e) {
-                    return responseBody;
-                }
-            });
+type Header = { name: string; value: string };
+
+function reduceHeaders(headers: Header[]) {
+  return reduce((acc, { name, value }) => ({ ...acc, [name]: value }), {}, headers);
+}
+
+function fetcher(url: string, token: string | undefined, headers: { name: string; value: string }[]) {
+  return (params: Object) =>
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        authorization: token ? 'Bearer ' + token : '',
+        ...reduceHeaders(headers),
+      },
+      body: JSON.stringify(params),
+    })
+      .then(function (response) {
+        return response.text();
+      })
+      .then(function (responseBody) {
+        try {
+          return JSON.parse(responseBody);
+        } catch (e) {
+          return responseBody;
+        }
+      });
 }
 
 const useStyles = makeStyles(() =>
-    createStyles({
-        root: {
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100vh',
-        },
-        header: {
-            alignItems: 'center',
-            display: 'flex',
-            fontSize: 14,
-            justifyContent: 'flex-end',
-            margin: '8px 8px 0px 8px',
+  createStyles({
+    root: {
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+    },
+    header: {
+      alignItems: 'center',
+      display: 'flex',
+      fontSize: 14,
+      justifyContent: 'flex-end',
+      margin: '8px 8px 0px 8px',
 
-            '& > *:not(:last-child)': {
-                marginRight: 8,
-            },
-        },
-        toolbar: {
-            margin: 8,
-        },
-        main: {},
-    })
+      '& > *:not(:last-child)': {
+        marginRight: 8,
+      },
+    },
+    toolbar: {
+      margin: 8,
+    },
+    main: {},
+  })
 );
 
 function App() {
-    const classes = useStyles();
-    const [schema, setSchema] = useState<GraphQLSchema>();
-    const [query, setQuery] = useState<string>();
-    const [token, setToken] = useState<string>();
-    const [email, setEmail] = useState<string>();
-    const [explorerIsOpen, setExplorerIsOpen] = useState(true);
-    const graphiql = useRef<any | null>(null);
-    const { enqueueSnackbar } = useSnackbar();
-    const { isAuthenticated, loginWithPopup, user, getTokenSilently, logout, setAuth0Options } = useAuth0();
-    const [authConfigDialogOpen, setAuthConfigDialogOpen] = useState(false);
-    const [url, setUrl] = useState<string>('');
-    const debouncedUrl = useDebounce(url, 1000);
-    const [authConfigDb, setAuthConfigDb] = useState<AuthConfigDb>({});
+  const classes = useStyles();
+  const [schema, setSchema] = useState<GraphQLSchema>();
+  const [query, setQuery] = useState<string>();
+  const [token, setToken] = useState<string>();
+  const [email, setEmail] = useState<string>();
+  const [explorerIsOpen, setExplorerIsOpen] = useState(true);
+  const graphiql = useRef<any | null>(null);
+  const { enqueueSnackbar } = useSnackbar();
+  const { isAuthenticated, loginWithPopup, user, getTokenSilently, logout, setAuth0Options } = useAuth0();
+  const [authConfigDialogOpen, setAuthConfigDialogOpen] = useState(false);
+  const [url, setUrl] = useState<string>('');
+  const debouncedUrl = useDebounce(url, 1000);
+  const [authConfigDb, setAuthConfigDb] = useState<AuthConfigDb>({});
+  const [headersDb, setHeadersDb] = useState<HeadersConfigDb>([]);
+  const [headersDialogOpen, setHeadersDialogOpen] = useState(false);
 
-    useEffect(() => {
-        const url = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}url`);
-        const token = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}token`);
-        const authConfig = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
+  const enabledHeaders = filter((f) => f.enabled, headersDb);
 
-        url && setUrl(url);
-        token && setToken(token);
-        authConfig && setAuthConfigDb(JSON.parse(authConfig));
-    }, []);
+  useEffect(() => {
+    const url = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}url`);
+    const token = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}token`);
+    const authConfig = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
+    const headers = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}headers`);
 
-    useEffect(() => {
-        const authConfig = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
+    url && setUrl(url);
+    token && setToken(token);
+    authConfig && setAuthConfigDb(JSON.parse(authConfig));
+    headers && setHeadersDb(JSON.parse(headers));
+  }, []);
 
-        if (!authConfig) return;
+  useEffect(() => {
+    const authConfig = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
 
-        const data = JSON.parse(authConfig);
+    if (!authConfig) return;
 
-        setAuth0Options(data.dev);
-    }, [setAuth0Options]);
+    const data = JSON.parse(authConfig);
 
-    const fetchSchema = useCallback(
-        async (url: string, token: string | undefined) => {
-            try {
-                const result = await fetcher(url, token)({ query: getIntrospectionQuery() });
+    setAuth0Options(data.dev);
+  }, [setAuth0Options]);
 
-                setSchema(buildClientSchema(result.data));
-            } catch (e) {
-                setSchema(undefined);
-                enqueueSnackbar(e.toString(), { variant: 'error', preventDuplicate: true });
-            }
-        },
-        [enqueueSnackbar]
-    );
+  const fetchSchema = useCallback(
+    async (url: string, token: string | undefined) => {
+      try {
+        const result = await fetcher(url, token, enabledHeaders)({ query: getIntrospectionQuery() });
 
-    useEffect(() => {
-        (async () => {
-            if (!user) return;
+        setSchema(buildClientSchema(result.data));
+      } catch (e) {
+        setSchema(undefined);
+        enqueueSnackbar(e.toString(), { variant: 'error', preventDuplicate: true });
+      }
+    },
+    [enabledHeaders, enqueueSnackbar]
+  );
 
-            const token = await getTokenSilently();
+  useEffect(() => {
+    (async () => {
+      if (!user) return;
 
-            // TODO: recheck, maybe separate from the other token
-            setToken(token);
-        })();
-    }, [getTokenSilently, user]);
+      const token = await getTokenSilently();
 
-    useEffect(() => {
-        if (!graphiql.current) return;
+      // TODO: recheck, maybe separate from the other token
+      setToken(token);
+    })();
+  }, [getTokenSilently, user]);
 
-        const editor = graphiql.current.getQueryEditor();
-        editor.setOption('extraKeys', {
-            ...(editor.options.extraKeys || {}),
-            'Shift-Alt-LeftClick': showQueryInExplorer(query),
-        });
-    }, [query]);
+  useEffect(() => {
+    if (!graphiql.current) return;
 
-    useEffect(() => {
-        if (!debouncedUrl) return;
+    const editor = graphiql.current.getQueryEditor();
+    editor.setOption('extraKeys', {
+      ...(editor.options.extraKeys || {}),
+      'Shift-Alt-LeftClick': showQueryInExplorer(query),
+    });
+  }, [query]);
 
-        fetchSchema(debouncedUrl, token);
-    }, [fetchSchema, debouncedUrl, token]);
+  useEffect(() => {
+    if (!debouncedUrl) return;
 
-    useEffect(() => {
-        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}token`, token || '');
+    fetchSchema(debouncedUrl, token);
+  }, [fetchSchema, debouncedUrl, token]);
 
-        if (!token) {
-            setEmail('');
-            return;
-        }
+  useEffect(() => {
+    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}token`, token || '');
 
-        try {
-            const jwtData = jwtDecode<{ [EMAIL_CLAIM]: string }>(token);
+    if (!token) {
+      setEmail('');
+      return;
+    }
 
-            setEmail(jwtData[EMAIL_CLAIM]);
-        } catch (e) {
-            enqueueSnackbar(e.toString(), { variant: 'error', preventDuplicate: true });
-        }
-    }, [enqueueSnackbar, token]);
+    try {
+      const jwtData = jwtDecode<{ [EMAIL_CLAIM]: string }>(token);
 
-    const handleToggleExplorer = () => setExplorerIsOpen((prev) => !prev);
+      setEmail(jwtData[EMAIL_CLAIM]);
+    } catch (e) {
+      enqueueSnackbar(e.toString(), { variant: 'error', preventDuplicate: true });
+    }
+  }, [enqueueSnackbar, token]);
 
-    const handleToken = () => {
-        const token = prompt('Token', '');
+  const handleToggleExplorer = () => setExplorerIsOpen((prev) => !prev);
 
-        if (isNil(token)) return;
+  const handleToken = () => {
+    const token = prompt('Token', '');
 
-        setToken(token.replace('Bearer ', '').trim());
-    };
+    if (isNil(token)) return;
 
-    const handleAuthConfigClick = () => {
-        setAuthConfigDialogOpen(true);
-    };
+    setToken(token.replace('Bearer ', '').trim());
+  };
 
-    const handleAuthSelect = (env: string) => () => {
-        loginWithPopup({});
-    };
+  const handleAuthConfigClick = () => {
+    setAuthConfigDialogOpen(true);
+  };
 
-    const handleLogoutClick = () => {
-        logout({ returnTo: process.env.PUBLIC_URL });
-        setToken('');
-    };
+  const handleAuthSelect = (env: string) => () => {
+    loginWithPopup({});
+  };
 
-    const handleAuthDialogClose = () => {
-        setAuthConfigDialogOpen(false);
-    };
+  const handleLogoutClick = () => {
+    logout({ returnTo: process.env.PUBLIC_URL });
+    setToken('');
+  };
 
-    const handleAuthDialogChange = (data: AuthConfigDb) => {
-        setAuthConfigDb(data);
-    };
+  const handleAuthDialogClose = () => setAuthConfigDialogOpen(false);
 
-    const handleAuthDialogOk = () => {
-        setAuthConfigDialogOpen(false);
-    };
+  const handleAuthDialogChange = (data: AuthConfigDb) => setAuthConfigDb(data);
 
-    const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
-        setUrl(e.target.value);
-        localStorage.setItem(`${LOCAL_STORAGE_PREFIX}url`, url);
-    };
+  const handleAuthDialogOk = () => setAuthConfigDialogOpen(false);
 
-    const onRefreshClick = () => debouncedUrl && fetchSchema(debouncedUrl, token);
+  const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setUrl(e.target.value);
+    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}url`, url);
+  };
 
-    return (
-        <div className={classes.root}>
-            {email && (
-                <div className={classes.header}>
-                    <div>{email}</div>
-                    <AccountCircleIcon color="action" />
-                </div>
-            )}
+  const onRefreshClick = () => debouncedUrl && fetchSchema(debouncedUrl, token);
 
-            <Toolbar className={classes.toolbar} url={url} onRefreshClick={onRefreshClick} onUrlChange={handleUrlChange} />
+  const handleHeadersDialog = () => setHeadersDialogOpen(true);
 
-            <div className={clsx('graphiql-container', classes.main)}>
-                <GraphiQLExplorer
-                    schema={schema}
-                    query={query}
-                    onEdit={setQuery}
-                    onRunOperation={(operationName: string) => graphiql.current.handleRunQuery(operationName)}
-                    explorerIsOpen={explorerIsOpen}
-                    onToggleExplorer={handleToggleExplorer}
-                />
-                <GraphiQL ref={graphiql} fetcher={fetcher(debouncedUrl, token)} schema={schema} query={query} onEditQuery={setQuery}>
-                    <GraphiQL.Toolbar>
-                        <GraphiQL.Button
-                            onClick={() => graphiql.current.handlePrettifyQuery()}
-                            label="Prettify"
-                            title="Prettify Query (Shift-Ctrl-P)"
-                        />
-                        <GraphiQL.Button onClick={() => graphiql.current.handleToggleHistory()} label="History" title="Show History" />
-                        <GraphiQL.Button onClick={handleToggleExplorer} label="Explorer" title="Toggle Explorer" />
-                        <GraphiQL.Menu label="Auth" title="Auth">
-                            <GraphiQL.MenuItem label="config" value="config" onSelect={handleAuthConfigClick} />
-                            {Object.keys(authConfigDb).map((name) => (
-                                <GraphiQL.MenuItem label={name} value={name} onSelect={handleAuthSelect(name)} />
-                            ))}
-                        </GraphiQL.Menu>
-                        {isAuthenticated && <GraphiQL.Button label="Logout" title="Logout" onClick={handleLogoutClick} />}
-                        <GraphiQL.Button onClick={handleToken} label={'Token'} title={'Set custom Token'} />
-                    </GraphiQL.Toolbar>
-                </GraphiQL>
-            </div>
+  const handleHeadersDialogCancel = () => setHeadersDialogOpen(false);
+  const handleHeadersDialogOk = (db: HeadersConfigDb) => {
+    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}headers`, JSON.stringify(db));
 
-            <AuthConfigDialog
-                open={authConfigDialogOpen}
-                data={authConfigDb}
-                onChange={handleAuthDialogChange}
-                onClose={handleAuthDialogClose}
-                onOk={handleAuthDialogOk}
-            />
+    setHeadersDb(db);
+    setHeadersDialogOpen(false);
+  };
+
+  return (
+    <div className={classes.root}>
+      {email && (
+        <div className={classes.header}>
+          <div>{email}</div>
+          <AccountCircleIcon color="action" />
         </div>
-    );
+      )}
+
+      <Toolbar className={classes.toolbar} url={url} onRefreshClick={onRefreshClick} onUrlChange={handleUrlChange} />
+
+      <div className={clsx('graphiql-container', classes.main)}>
+        <GraphiQLExplorer
+          schema={schema}
+          query={query}
+          onEdit={setQuery}
+          onRunOperation={(operationName: string) => graphiql.current.handleRunQuery(operationName)}
+          explorerIsOpen={explorerIsOpen}
+          onToggleExplorer={handleToggleExplorer}
+        />
+        <GraphiQL ref={graphiql} fetcher={fetcher(debouncedUrl, token, enabledHeaders)} schema={schema} query={query} onEditQuery={setQuery}>
+          <GraphiQL.Toolbar>
+            <GraphiQL.Button onClick={() => graphiql.current.handlePrettifyQuery()} label="Prettify" title="Prettify Query (Shift-Ctrl-P)" />
+            <GraphiQL.Button onClick={() => graphiql.current.handleToggleHistory()} label="History" title="Show History" />
+            <GraphiQL.Button onClick={handleToggleExplorer} label="Explorer" title="Toggle Explorer" />
+            <GraphiQL.Menu label="Auth" title="Auth">
+              <GraphiQL.MenuItem label="config" value="config" onSelect={handleAuthConfigClick} />
+              {Object.keys(authConfigDb).map((name) => (
+                <GraphiQL.MenuItem key={name} label={name} value={name} onSelect={handleAuthSelect(name)} />
+              ))}
+            </GraphiQL.Menu>
+            {isAuthenticated && <GraphiQL.Button label="Logout" title="Logout" onClick={handleLogoutClick} />}
+            <GraphiQL.Button onClick={handleToken} label={'Token'} title={'Set custom Token'} />
+            <GraphiQL.Button
+              onClick={handleHeadersDialog}
+              label={'Headers' + (not(isEmpty(enabledHeaders)) ? ` (${length(enabledHeaders)})` : '')}
+              title={'Set Headers'}
+            />
+          </GraphiQL.Toolbar>
+        </GraphiQL>
+      </div>
+
+      <AuthConfigDialog
+        open={authConfigDialogOpen}
+        data={authConfigDb}
+        onChange={handleAuthDialogChange}
+        onClose={handleAuthDialogClose}
+        onOk={handleAuthDialogOk}
+      />
+
+      <HeadersDialog open={headersDialogOpen} data={headersDb} onCancel={handleHeadersDialogCancel} onOk={handleHeadersDialogOk} />
+    </div>
+  );
 }
 
 export default App;
