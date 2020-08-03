@@ -115,9 +115,9 @@ function App() {
   }, [setAuth0Options]);
 
   const fetchSchema = useCallback(
-    async (url: string, token: string | undefined) => {
+    async (url: string, token: string | undefined, headers: HeadersConfigDb) => {
       try {
-        const result = await fetcher(url, token, enabledHeaders)({ query: getIntrospectionQuery() });
+        const result = await fetcher(url, token, headers)({ query: getIntrospectionQuery() });
 
         setSchema(buildClientSchema(result.data));
       } catch (e) {
@@ -125,7 +125,7 @@ function App() {
         enqueueSnackbar(e.toString(), { variant: 'error', preventDuplicate: true });
       }
     },
-    [enabledHeaders, enqueueSnackbar]
+    [enqueueSnackbar]
   );
 
   useEffect(() => {
@@ -152,8 +152,8 @@ function App() {
   useEffect(() => {
     if (!debouncedUrl) return;
 
-    fetchSchema(debouncedUrl, token);
-  }, [fetchSchema, debouncedUrl, token]);
+    fetchSchema(debouncedUrl, token, enabledHeaders);
+  }, [fetchSchema, debouncedUrl, token, enabledHeaders]);
 
   useEffect(() => {
     localStorage.setItem(`${LOCAL_STORAGE_PREFIX}token`, token || '');
@@ -202,11 +202,14 @@ function App() {
   const handleAuthDialogOk = () => setAuthConfigDialogOpen(false);
 
   const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setUrl(e.target.value);
-    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}url`, url);
+    const { value } = e.target;
+
+    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}url`, value);
+
+    setUrl(value);
   };
 
-  const onRefreshClick = () => debouncedUrl && fetchSchema(debouncedUrl, token);
+  const onRefreshClick = () => debouncedUrl && fetchSchema(debouncedUrl, token, enabledHeaders);
 
   const handleHeadersDialog = () => setHeadersDialogOpen(true);
 
