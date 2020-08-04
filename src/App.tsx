@@ -7,6 +7,8 @@ import 'graphiql/graphiql.css';
 import { buildClientSchema, getIntrospectionQuery, GraphQLSchema } from 'graphql';
 import jwtDecode from 'jwt-decode';
 import { useSnackbar } from 'notistack';
+import parserGraphql from 'prettier/parser-graphql';
+import prettier from 'prettier/standalone';
 import { filter, isEmpty, isNil, length, not, reduce } from 'ramda';
 import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth0 } from './Auth0Provider';
@@ -221,6 +223,31 @@ function App() {
     setHeadersDialogOpen(false);
   };
 
+  const handlePrettifyQuery = () => {
+    if (!graphiql.current) return;
+
+    try {
+      const editor = graphiql.current.getQueryEditor();
+
+      const currentText = editor.getValue();
+      const cursor = editor.getCursor();
+      const cursorIndex = editor.indexFromPos(cursor);
+
+      const formatWithCursorResult = prettier.formatWithCursor(currentText, {
+        cursorOffset: cursorIndex,
+        parser: 'graphql',
+        plugins: [parserGraphql],
+        printWidth: Math.floor(editor.display.wrapper.clientWidth / 9),
+      });
+
+      editor.setValue(formatWithCursorResult.formatted);
+      editor.setCursor(editor.posFromIndex(formatWithCursorResult.cursorOffset));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(error);
+    }
+  };
+
   return (
     <div className={classes.root}>
       {email && (
@@ -243,7 +270,7 @@ function App() {
         />
         <GraphiQL ref={graphiql} fetcher={fetcher(debouncedUrl, token, enabledHeaders)} schema={schema} query={query} onEditQuery={setQuery}>
           <GraphiQL.Toolbar>
-            <GraphiQL.Button onClick={() => graphiql.current.handlePrettifyQuery()} label="Prettify" title="Prettify Query (Shift-Ctrl-P)" />
+            <GraphiQL.Button onClick={handlePrettifyQuery} label="Prettify" title="Prettify Query (Shift-Ctrl-P)" />
             <GraphiQL.Button onClick={() => graphiql.current.handleToggleHistory()} label="History" title="Show History" />
             <GraphiQL.Button onClick={handleToggleExplorer} label="Explorer" title="Toggle Explorer" />
             <GraphiQL.Menu label="Auth" title="Auth">
