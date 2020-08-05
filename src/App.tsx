@@ -9,8 +9,8 @@ import jwtDecode from 'jwt-decode';
 import { useSnackbar } from 'notistack';
 import parserGraphql from 'prettier/parser-graphql';
 import prettier from 'prettier/standalone';
-import { filter, isEmpty, isNil, length, not, reduce } from 'ramda';
-import React, { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { filter, isEmpty, isNil, length, not } from 'ramda';
+import React, { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth0 } from './Auth0Provider';
 import AuthConfigDialog from './components/AuthConfigDialog';
 import HeadersDialog from './components/HeadersDialog';
@@ -92,7 +92,7 @@ function App() {
   const [headersDb, setHeadersDb] = useState<HeadersConfigDb>([]);
   const [headersDialogOpen, setHeadersDialogOpen] = useState(false);
 
-  const enabledHeaders = filter((f) => f.enabled, headersDb);
+  const enabledHeaders = useMemo(() => filter((f) => f.enabled, headersDb), [headersDb]);
 
   useEffect(() => {
     const url = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}url`);
