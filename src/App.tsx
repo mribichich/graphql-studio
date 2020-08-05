@@ -18,37 +18,8 @@ import Toolbar from './components/Toolbar';
 import { EMAIL_CLAIM, LOCAL_STORAGE_PREFIX } from './constants';
 import useDebounce from './hooks/useDebounce';
 import { AuthConfigDb, HeadersConfigDb } from './types';
+import fetcher from './utils/fetcher';
 import showQueryInExplorer from './utils/showQueryInExplorer';
-
-type Header = { name: string; value: string };
-
-function reduceHeaders(headers: Header[]) {
-  return reduce((acc, { name, value }) => ({ ...acc, [name]: value }), {}, headers);
-}
-
-function fetcher(url: string, token: string | undefined, headers: { name: string; value: string }[]) {
-  return (params: Object) =>
-    fetch(url, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        authorization: token ? 'Bearer ' + token : '',
-        ...reduceHeaders(headers),
-      },
-      body: JSON.stringify(params),
-    })
-      .then(function (response) {
-        return response.text();
-      })
-      .then(function (responseBody) {
-        try {
-          return JSON.parse(responseBody);
-        } catch (e) {
-          return responseBody;
-        }
-      });
-}
 
 const useStyles = makeStyles(() =>
   createStyles({
