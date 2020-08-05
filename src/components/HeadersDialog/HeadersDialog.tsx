@@ -98,13 +98,13 @@ const HeadersDialog: FC<Props> = ({ data: dataProp = [], open = false, onCancel,
 
   return (
     <div>
-      <Dialog open={open} fullWidth maxWidth="md" onClose={onCancel} aria-labelledby="form-dialog-title">
+      <Dialog open={open} maxWidth="md" onClose={onCancel} aria-labelledby="form-dialog-title">
         <DialogTitle id="add-dialog-title">Headers</DialogTitle>
         <DialogContent>
           <Grid container spacing={1}>
             {data.map((m, index) => (
               <Fragment key={index}>
-                <Grid className={classes.row} item xs={6}>
+                <Grid className={classes.row} item xs={5}>
                   <Checkbox id={`enabled-${index}`} checked={m.enabled} onChange={handleEnabledChange(index)} />
 
                   <Autocomplete
@@ -118,7 +118,7 @@ const HeadersDialog: FC<Props> = ({ data: dataProp = [], open = false, onCancel,
                     renderInput={(params) => <TextField {...params} inputRef={nameRef} margin="dense" label="Name" autoComplete="off" />}
                   />
                 </Grid>
-                <Grid className={classes.row} item xs={6}>
+                <Grid className={classes.row} item xs={7}>
                   <TextField margin="dense" id={`value-${index}`} label="Value" fullWidth value={m.value} onChange={handleValueChange(index)} />
 
                   <Tooltip title="Delete">
