@@ -43,6 +43,10 @@ const useStyles = makeStyles(() =>
       margin: 8,
     },
     main: {},
+    divider: {
+      borderBottom: '1px solid rgb(208 208 208 / 0.5)',
+      padding: '0 !important',
+    },
   })
 );
 
@@ -62,6 +66,7 @@ function App() {
   const [authConfigDb, setAuthConfigDb] = useState<AuthConfigDb>({});
   const [headersDb, setHeadersDb] = useState<HeadersConfigDb>([]);
   const [headersDialogOpen, setHeadersDialogOpen] = useState(false);
+  const [selectedAuth0Env, setSelectedAuth0Env] = useState<string>();
 
   const enabledHeaders = useMemo(() => filter((f) => f.enabled, headersDb), [headersDb]);
 
@@ -69,22 +74,17 @@ function App() {
     const url = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}url`);
     const token = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}token`);
     const authConfig = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
+    const selectedAuth0EnvDb = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}selectedAuth0Env`);
     const headers = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}headers`);
+
+    const authConfigJson = authConfig && JSON.parse(authConfig);
 
     url && setUrl(url);
     token && setToken(token);
-    authConfig && setAuthConfigDb(JSON.parse(authConfig));
+    authConfigJson && setAuthConfigDb(authConfigJson);
+    selectedAuth0EnvDb && setSelectedAuth0Env(selectedAuth0EnvDb);
+    authConfigJson && selectedAuth0EnvDb && setAuth0Options(authConfigJson[selectedAuth0EnvDb]);
     headers && setHeadersDb(JSON.parse(headers));
-  }, []);
-
-  useEffect(() => {
-    const authConfig = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
-
-    if (!authConfig) return;
-
-    const data = JSON.parse(authConfig);
-
-    setAuth0Options(data.dev);
   }, [setAuth0Options]);
 
   const fetchSchema = useCallback(
@@ -94,6 +94,9 @@ function App() {
 
         setSchema(buildClientSchema(result.data));
       } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+
         setSchema(undefined);
         enqueueSnackbar(e.toString(), { variant: 'error', preventDuplicate: true });
       }
@@ -160,12 +163,20 @@ function App() {
   };
 
   const handleAuthSelect = (env: string) => () => {
+    setSelectedAuth0Env(env);
+    setAuth0Options(authConfigDb[env]);
+
+    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}selectedAuth0Env`, env);
+  };
+
+  const handleLoginClick = () => {
     loginWithPopup({});
   };
 
   const handleLogoutClick = () => {
     logout({ returnTo: process.env.PUBLIC_URL });
     setToken('');
+    setSelectedAuth0Env(undefined);
   };
 
   const handleAuthDialogClose = () => setAuthConfigDialogOpen(false);
@@ -244,17 +255,30 @@ function App() {
             <GraphiQL.Button onClick={handlePrettifyQuery} label="Prettify" title="Prettify Query (Shift-Ctrl-P)" />
             <GraphiQL.Button onClick={() => graphiql.current.handleToggleHistory()} label="History" title="Show History" />
             <GraphiQL.Button onClick={handleToggleExplorer} label="Explorer" title="Toggle Explorer" />
-            <GraphiQL.Menu label="Auth" title="Auth">
+            <GraphiQL.Menu label={<>Auth {selectedAuth0Env && `(${selectedAuth0Env})`}</>} title="Auth">
               <GraphiQL.MenuItem label="config" value="config" onSelect={handleAuthConfigClick} />
+              <li className={classes.divider} />
+
               {Object.keys(authConfigDb).map((name) => (
-                <GraphiQL.MenuItem key={name} label={name} value={name} onSelect={handleAuthSelect(name)} />
+                <GraphiQL.MenuItem
+                  key={name}
+                  label={
+                    <span style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      {name}
+                      {name === selectedAuth0Env && <span>✓</span>}
+                    </span>
+                  }
+                  value={name}
+                  onSelect={handleAuthSelect(name)}
+                />
               ))}
             </GraphiQL.Menu>
+            {not(isAuthenticated) && <GraphiQL.Button label="Login" title="Login" onClick={handleLoginClick} />}
             {isAuthenticated && <GraphiQL.Button label="Logout" title="Logout" onClick={handleLogoutClick} />}
             <GraphiQL.Button onClick={handleToken} label={'Token'} title={'Set custom Token'} />
             <GraphiQL.Button
               onClick={handleHeadersDialog}
-              label={'Headers' + (not(isEmpty(enabledHeaders)) ? ` (${length(enabledHeaders)})` : '')}
+              label={<>Headers {not(isEmpty(enabledHeaders)) && `(${length(enabledHeaders)})`}</>}
               title={'Set Headers'}
             />
           </GraphiQL.Toolbar>
