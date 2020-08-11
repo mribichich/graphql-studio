@@ -67,11 +67,13 @@ function App() {
   const [headersDb, setHeadersDb] = useState<HeadersConfigDb>([]);
   const [headersDialogOpen, setHeadersDialogOpen] = useState(false);
   const [selectedAuth0Env, setSelectedAuth0Env] = useState<string>();
+  const [urls, setUrls] = useState<string[]>([]);
 
   const enabledHeaders = useMemo(() => filter((f) => f.enabled, headersDb), [headersDb]);
 
   useEffect(() => {
     const url = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}url`);
+    const urls = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}urls`);
     const token = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}token`);
     const authConfig = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}authConfig`);
     const selectedAuth0EnvDb = localStorage.getItem(`${LOCAL_STORAGE_PREFIX}selectedAuth0Env`);
@@ -80,6 +82,7 @@ function App() {
     const authConfigJson = authConfig && JSON.parse(authConfig);
 
     url && setUrl(url);
+    urls && setUrls(JSON.parse(urls));
     token && setToken(token);
     authConfigJson && setAuthConfigDb(authConfigJson);
     selectedAuth0EnvDb && setSelectedAuth0Env(selectedAuth0EnvDb);
@@ -185,13 +188,37 @@ function App() {
 
   const handleAuthDialogOk = () => setAuthConfigDialogOpen(false);
 
-  const handleUrlChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-
-    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}url`, value);
+  const handleUrlChange = useCallback((e: ChangeEvent<{}>) => {
+    const { value } = e.target as HTMLInputElement;
 
     setUrl(value);
+    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}url`, value);
+  }, []);
+
+  const handleUrlSelected = (event: any, newValue: string | null) => {
+    const value = newValue || '';
+
+    setUrl(value);
+    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}url`, value);
   };
+
+  const handleAddUrlClick = useCallback(() => {
+    const newUrls = [...urls, url];
+
+    setUrls(newUrls);
+    localStorage.setItem(`${LOCAL_STORAGE_PREFIX}urls`, JSON.stringify(newUrls));
+  }, [url, urls]);
+
+  const handleRemoveUrlClick = useCallback(
+    (url: string) => {
+      const index = urls.indexOf(url);
+      const newUrls = [...urls.slice(0, index), ...urls.slice(index + 1)];
+
+      setUrls(newUrls);
+      localStorage.setItem(`${LOCAL_STORAGE_PREFIX}urls`, JSON.stringify(newUrls));
+    },
+    [urls]
+  );
 
   const onRefreshClick = () => debouncedUrl && fetchSchema(debouncedUrl, token, enabledHeaders);
 
@@ -239,7 +266,16 @@ function App() {
         </div>
       )}
 
-      <Toolbar className={classes.toolbar} url={url} onRefreshClick={onRefreshClick} onUrlChange={handleUrlChange} />
+      <Toolbar
+        className={classes.toolbar}
+        url={url}
+        urls={urls}
+        onAddUrlClick={handleAddUrlClick}
+        onRefreshClick={onRefreshClick}
+        onRemoveUrlClick={handleRemoveUrlClick}
+        onUrlChange={handleUrlChange}
+        onUrlSelected={handleUrlSelected}
+      />
 
       <div className={clsx('graphiql-container', classes.main)}>
         <GraphiQLExplorer
